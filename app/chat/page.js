@@ -6,18 +6,8 @@ import { createClient } from '@/lib/supabase/client';
 
 function CrownLogo({ className = '' }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      className={`${className} transition-transform duration-700 ease-out hover:rotate-[-6deg] hover:scale-105`}
-    >
-      <path
-        d="M3 17L5 7L9 11L12 5L15 11L19 7L21 17H3Z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M3 17L5 7L9 11L12 5L15 11L19 7L21 17H3Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
       <circle cx="12" cy="19.5" r="1" fill="currentColor" />
     </svg>
   );
@@ -28,18 +18,8 @@ function stripMarkdown(text) {
   return text
     .replace(/\*\*(.*?)\*\*/g, '$1')
     .replace(/\*(.*?)\*/g, '$1')
-    .replace(/__(.*?)__/g, '$1')
-    .replace(/_(.*?)_/g, '$1')
-    .replace(/~~(.*?)~~/g, '$1')
-    .replace(/`{3}[\s\S]*?`{3}/g, '')
     .replace(/`(.*?)`/g, '$1')
     .replace(/^#{1,6}\s+/gm, '')
-    .replace(/^\s*[-*+]\s+/gm, '• ')
-    .replace(/^\s*\d+\.\s+/gm, '')
-    .replace(/^\s*>\s+/gm, '')
-    .replace(/\[(.*?)\]\(.*?\)/g, '$1')
-    .replace(/!\[.*?\]\(.*?\)/g, '')
-    .replace(/---+/g, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
@@ -47,6 +27,8 @@ function stripMarkdown(text) {
 export default function ChatPage() {
   const [conversationId, setConversationId] = useState(null);
   const [loadingConv, setLoadingConv] = useState(true);
+  const [initialMessages, setInitialMessages] = useState([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const [input, setInput] = useState('');
   const [pendingFile, setPendingFile] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -66,28 +48,60 @@ export default function ChatPage() {
         .order('created_at', { ascending: false })
         .limit(1);
 
+      let convId;
       if (convs && convs.length > 0) {
-        setConversationId(convs[0].id);
+        convId = convs[0].id;
       } else {
         const { data: newConv } = await supabase
           .from('conversations')
           .insert({ user_id: user.id })
           .select('id')
           .single();
-        if (newConv) setConversationId(newConv.id);
+        convId = newConv.id;
       }
 
+      setConversationId(convId);
       setLoadingConv(false);
+
+      setLoadingMessages(true);
+      try {
+        const res = await fetch(`/api/messages?conversationId=${convId}`);
+        const data = await res.json();
+        if (data.messages) {
+          const formatted = data.messages.map((m) => ({
+            id: m.id,
+            role: m.role,
+            parts: [{ type: 'text', text: m.content }],
+            createdAt: m.created_at,
+          }));
+          setInitialMessages(formatted);
+        }
+      } catch (err) {
+        console.error('Gagal load pesan:', err);
+      } finally {
+        setLoadingMessages(false);
+      }
     }
 
     initConversation();
   }, []);
 
-  const { messages, status, sendMessage } = useChat();
+  const { messages, status, sendMessage } = useChat({
+    id: conversationId,
+    initialMessages,
+  });
+
+  const lastMessage = messages.at(-1);
+  const isAssistantThinking =
+    status === 'streaming' &&
+    lastMessage?.role === 'assistant' &&
+    (lastMessage?.parts?.length ?? 0) === 0;
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }, [messages.length]);
 
   async function uploadFile(file) {
     setUploading(true);
@@ -97,20 +111,15 @@ export default function ChatPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileName: file.name }),
       });
-
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Gagal dapat signed URL');
-
       const { signedUrl, path } = data;
-
       const uploadRes = await fetch(signedUrl, {
         method: 'PUT',
         body: file,
         headers: { 'Content-Type': file.type },
       });
-
       if (!uploadRes.ok) throw new Error('Upload ke storage gagal');
-
       setPendingFile({ path, name: file.name, type: file.type });
     } catch (err) {
       console.error('Upload error:', err);
@@ -123,17 +132,10 @@ export default function ChatPage() {
   function handleSubmit(e) {
     e.preventDefault();
     if (!input.trim() && !pendingFile) return;
-
     sendMessage(
       { text: input || ' ' },
-      {
-        body: {
-          conversationId,
-          attachment: pendingFile?.path || null,
-        },
-      }
+      { body: { conversationId, attachment: pendingFile?.path || null } }
     );
-
     setInput('');
     setPendingFile(null);
   }
@@ -170,7 +172,7 @@ export default function ChatPage() {
           <div>
             <h1 className="font-semibold text-white text-sm tracking-tight">Asyam AI</h1>
             <p className="text-[10px] sm:text-xs text-neutral-500">
-              {status === 'streaming' || status === 'submitted' ? 'Sedang mengetik...' : 'Online'}
+              {isAssistantThinking ? 'Sedang mengetik...' : 'Online'}
             </p>
           </div>
         </div>
@@ -184,9 +186,15 @@ export default function ChatPage() {
         </form>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-6">
+      <div className="flex-1 overflow-y-auto overscroll-contain px-3 sm:px-6 py-4 sm:py-6">
         <div className="max-w-3xl mx-auto w-full space-y-4">
-          {messages.length === 0 && (
+          {loadingMessages && (
+            <div className="flex justify-center py-4">
+              <div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+
+          {!loadingMessages && messages.length === 0 && (
             <div className="h-full min-h-[60vh] flex flex-col items-center justify-center text-center px-4">
               <div className="w-20 h-20 mb-6 bg-neutral-900 border border-white/10 rounded-2xl flex items-center justify-center">
                 <CrownLogo className="w-10 h-10 text-emerald-400" />
@@ -240,7 +248,7 @@ export default function ChatPage() {
             </div>
           ))}
 
-          {(status === 'submitted' || status === 'streaming') && messages[messages.length - 1]?.role === 'user' && (
+          {isAssistantThinking && (
             <div className="flex items-end gap-2 justify-start">
               <div className="w-7 h-7 sm:w-8 sm:h-8 bg-neutral-900 border border-white/10 rounded-lg flex items-center justify-center flex-shrink-0">
                 <CrownLogo className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
@@ -310,10 +318,10 @@ export default function ChatPage() {
           />
           <button
             type="submit"
-            disabled={status === 'streaming' || status === 'submitted' || (!input.trim() && !pendingFile)}
+            disabled={isAssistantThinking || (!input.trim() && !pendingFile)}
             className="bg-emerald-400 hover:bg-emerald-300 text-neutral-950 w-11 h-11 rounded-2xl flex items-center justify-center transition disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
           >
-            {status === 'streaming' || status === 'submitted' ? (
+            {isAssistantThinking ? (
               <div className="w-4 h-4 border-2 border-neutral-950 border-t-transparent rounded-full animate-spin" />
             ) : (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

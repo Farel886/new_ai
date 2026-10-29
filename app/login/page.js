@@ -6,18 +6,8 @@ import { createClient } from '@/lib/supabase/client';
 
 function CrownLogo({ className = '' }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      className={`${className} transition-transform duration-700 ease-out hover:rotate-[-6deg] hover:scale-105`}
-    >
-      <path
-        d="M3 17L5 7L9 11L12 5L15 11L19 7L21 17H3Z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M3 17L5 7L9 11L12 5L15 11L19 7L21 17H3Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
       <circle cx="12" cy="19.5" r="1" fill="currentColor" />
     </svg>
   );
@@ -30,6 +20,11 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const supabase = createClient();
+
+  // Cek apakah user baru balik dari reset password
+  const resetSuccess =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('reset') === 'success';
 
   async function handleLogin(e) {
     e.preventDefault();
@@ -59,10 +54,13 @@ export default function LoginPage() {
           <p className="text-sm text-neutral-500 mt-1">Masuk untuk melanjutkan</p>
         </div>
 
-        <form
-          onSubmit={handleLogin}
-          className="bg-neutral-900/60 border border-white/10 p-6 rounded-2xl space-y-4"
-        >
+        <form onSubmit={handleLogin} className="bg-neutral-900/60 border border-white/10 p-6 rounded-2xl space-y-4">
+          {resetSuccess && (
+            <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs px-4 py-3 rounded-xl">
+              Password berhasil diubah. Silakan login.
+            </div>
+          )}
+
           {error && (
             <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs px-4 py-3 rounded-xl">
               {error}
@@ -95,12 +93,17 @@ export default function LoginPage() {
               className="w-full bg-neutral-950/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition"
               required
             />
+            <div className="text-right mt-2">
+              <a href="/forgot-password" className="text-xs text-neutral-500 hover:text-emerald-400 transition">
+                Lupa password?
+              </a>
+            </div>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-300 hover:to-teal-400 text-neutral-950 font-semibold py-3 rounded-xl text-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-emerald-400 hover:bg-emerald-300 text-neutral-950 font-semibold py-3 rounded-xl text-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Masuk...' : 'Masuk'}
           </button>
