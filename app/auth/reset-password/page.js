@@ -21,7 +21,7 @@ export default function ResetPasswordPage() {
   const [ready, setReady] = useState(false);
   const router = useRouter();
 
-  // Bikin supabase cuma sekali, dan aman di server (build)
+  // Bikin supabase cuma sekali, aman di server (build)
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
