@@ -32,7 +32,10 @@ export default function ChatPage() {
   const [input, setInput] = useState('');
   const [pendingFile, setPendingFile] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const supabase = createClient();
+
+  // Pakai useMemo biar createClient nggak dipanggil ulang tiap render
+  const supabase = useMemo(() => createClient(), []);
+
   const bottomRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -84,7 +87,7 @@ export default function ChatPage() {
     }
 
     initConversation();
-  }, []);
+  }, [supabase]);
 
   const { messages, status, sendMessage } = useChat({
     id: conversationId,

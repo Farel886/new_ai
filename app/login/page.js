@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
@@ -19,12 +19,8 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
 
-  // Cek apakah user baru balik dari reset password
-  const resetSuccess =
-    typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).get('reset') === 'success';
+  const supabase = useMemo(() => createClient(), []);
 
   async function handleLogin(e) {
     e.preventDefault();
@@ -55,12 +51,6 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleLogin} className="bg-neutral-900/60 border border-white/10 p-6 rounded-2xl space-y-4">
-          {resetSuccess && (
-            <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs px-4 py-3 rounded-xl">
-              Password berhasil diubah. Silakan login.
-            </div>
-          )}
-
           {error && (
             <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs px-4 py-3 rounded-xl">
               {error}
@@ -93,11 +83,6 @@ export default function LoginPage() {
               className="w-full bg-neutral-950/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition"
               required
             />
-            <div className="text-right mt-2">
-              <a href="/forgot-password" className="text-xs text-neutral-500 hover:text-emerald-400 transition">
-                Lupa password?
-              </a>
-            </div>
           </div>
 
           <button
