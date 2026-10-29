@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
@@ -20,10 +20,11 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
+
+  // Bikin supabase cuma sekali, dan aman di server (build)
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
-    // Supabase otomatis set session dari link reset di URL
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
@@ -33,7 +34,7 @@ export default function ResetPasswordPage() {
       }
     };
     checkSession();
-  }, []);
+  }, [supabase]);
 
   async function handleSubmit(e) {
     e.preventDefault();
