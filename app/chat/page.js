@@ -33,8 +33,6 @@ export default function ChatPage() {
   const [pendingFile, setPendingFile] = useState(null);
   const [uploading, setUploading] = useState(false);
 
-  const supabase = useMemo(() => createClient(), []);
-
   const bottomRef = useRef(null);
   const fileInputRef = useRef(null);
 
