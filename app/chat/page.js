@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -33,7 +33,6 @@ export default function ChatPage() {
   const [pendingFile, setPendingFile] = useState(null);
   const [uploading, setUploading] = useState(false);
 
-  // Pakai useMemo biar createClient nggak dipanggil ulang tiap render
   const supabase = useMemo(() => createClient(), []);
 
   const bottomRef = useRef(null);
